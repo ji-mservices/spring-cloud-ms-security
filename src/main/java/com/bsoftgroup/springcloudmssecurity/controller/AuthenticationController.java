@@ -4,6 +4,7 @@ import com.bsoftgroup.springcloudmssecurity.bean.AuthenticationRequest;
 import com.bsoftgroup.springcloudmssecurity.service.UserService;
 import com.bsoftgroup.springcloudmssecurity.util.JwtUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -12,6 +13,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
@@ -25,16 +29,27 @@ public class AuthenticationController {
     //REVIEW! add post method to create new user (with password encrypted)
 
     @PostMapping("/authenticate")
-    public ResponseEntity<String> authenticated(@RequestBody AuthenticationRequest request) {
+    public ResponseEntity<Map<String, Object>> authenticated(@RequestBody AuthenticationRequest request) {
 
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.username(), request.password()));
         final UserDetails user = userService.getUserDetailByUsername(request.username());
+        Map<String, Object> mapResponse = new HashMap<>();
 
         if (user != null) {
-            return ResponseEntity.ok(jwtUtils.generateToken(user));
+
+            HttpHeaders responseHeaders = new HttpHeaders();
+            responseHeaders.set("access-control-expose-headers", "Authorization");
+            responseHeaders.set("Authorization", "Bearer " + jwtUtils.generateToken(user));
+
+            mapResponse.put("token", jwtUtils.generateToken(user));
+
+            return ResponseEntity.ok()
+                    .headers(responseHeaders)
+                    .body(mapResponse);
         }
 
-        return ResponseEntity.status(400).body("Some error has occurred");
+        mapResponse.put("error", "Some error has occurred");
+        return ResponseEntity.status(400).body(mapResponse);
     }
 
 }
